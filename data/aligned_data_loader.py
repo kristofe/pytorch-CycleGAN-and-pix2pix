@@ -39,8 +39,8 @@ class PairedData(object):
         B = AB[:, :, h_offset:h_offset + self.fineSize,
                w + w_offset:w + w_offset + self.fineSize]
 
-        print("A size: {} mean: {:0.4f}  std: {:0.4f}, min: {:0.4f}, max: {:0.4f}".format(A.size(), A.mean(), A.std(), A.min(), A.max()))
-        print("B size: {} mean: {:0.4f}  std: {:0.4f}, min: {:0.4f}, max: {:0.4f}".format(B.size(), B.mean(), B.std(), B.min(), B.max()))
+        #print("A size: {} mean: {:0.4f}  std: {:0.4f}, min: {:0.4f}, max: {:0.4f}".format(A.size(), A.mean(), A.std(), A.min(), A.max()))
+        #print("B size: {} mean: {:0.4f}  std: {:0.4f}, min: {:0.4f}, max: {:0.4f}".format(B.size(), B.mean(), B.std(), B.min(), B.max()))
 
         if self.flip and random.random() < 0.5:
             idx = [i for i in range(A.size(3) - 1, -1, -1)]
