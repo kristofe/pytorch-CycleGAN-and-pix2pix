@@ -96,8 +96,10 @@ class GANLoss(nn.Module):
         self.fake_label_var = None
         self.Tensor = tensor
         if use_lsgan:
+            print("Using MSELoss")
             self.loss = nn.MSELoss()
         else:
+            print("Using BCELoss")
             self.loss = nn.BCELoss()
 
     def get_target_tensor(self, input, target_is_real):
