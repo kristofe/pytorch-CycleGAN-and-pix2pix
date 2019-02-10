@@ -47,12 +47,19 @@ class CycleGANModel(BaseModel):
                 self.load_network(self.netD_A, 'D_A', which_epoch)
                 self.load_network(self.netD_B, 'D_B', which_epoch)
 
+        if len(self.gpu_ids) > 0:
+            self.netG_A = self.netG_A.cuda(device=self.gpu_ids[0])
+            self.netG_B = self.netG_B.cuda(device=self.gpu_ids[0])
+            if self.isTrain:
+                self.netD_A = self.netD_A.cuda(device=self.gpu_ids[0])
+                self.netD_B = self.netD_B.cuda(device=self.gpu_ids[0])
+
         if self.isTrain:
             self.old_lr = opt.lr
             self.fake_A_pool = ImagePool(opt.pool_size)
             self.fake_B_pool = ImagePool(opt.pool_size)
             # define loss functions
-            self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
+            self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan, tensor=self.Tensor, gpu_ids=self.gpu_ids)
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
             # initialize optimizers
@@ -74,6 +81,7 @@ class CycleGANModel(BaseModel):
         AtoB = self.opt.which_direction == 'AtoB'
         input_A = input['A' if AtoB else 'B']
         input_B = input['B' if AtoB else 'A']
+
         self.input_A.resize_(input_A.size()).copy_(input_A)
         self.input_B.resize_(input_B.size()).copy_(input_B)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
@@ -81,6 +89,9 @@ class CycleGANModel(BaseModel):
     def forward(self):
         self.real_A = Variable(self.input_A)
         self.real_B = Variable(self.input_B)
+        if len(self.gpu_ids) > 0:
+            self.real_A = self.real_A.cuda(device=self.gpu_ids[0])
+            self.real_B = self.real_B.cuda(device=self.gpu_ids[0])
 
     def test(self):
         self.real_A = Variable(self.input_A, volatile=True)
