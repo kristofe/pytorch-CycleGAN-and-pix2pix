@@ -42,7 +42,9 @@ dataset_size = len(data_loader)
 print('#training images = %d' % dataset_size)
 
 model = create_model(opt)
+print('loading %s' % opt.GA_model_to_load)
 saved_model_A = torch.load(opt.GA_model_to_load, map_location=lambda storage, loc: storage)
+print('loading %s' % opt.GB_model_to_load)
 saved_model_B = torch.load(opt.GB_model_to_load, map_location=lambda storage, loc: storage)
 
 saved_model_A = remove_data_parallel(saved_model_A)
@@ -57,7 +59,6 @@ for i, data in enumerate(dataset):
     model.forward()
     model.netG_A.forward(model.real_A)
     model.netG_B.forward(model.real_B)
-    input_shape = (1,3,256,256)
     export_onnx(model.netG_A, model.real_A,"saved_model_netG_A.onnx")
     export_onnx(model.netG_B, model.real_B,"saved_model_netG_B.onnx")
     exit()
