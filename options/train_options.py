@@ -22,4 +22,6 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--no_flip'  , action='store_true', help='if specified, do not flip the images for data argumentation')
 
         # NOT-IMPLEMENTED self.parser.add_argument('--preprocessing', type=str, default='resize_and_crop', help='resizing/cropping strategy')
+        self.parser.add_argument('--L1_render', action='store_true', help='use L1 on render instead of L1 on heights for regularization loss')
+        self.parser.add_argument('--disc_normals', action='store_true', help='discriminator input is normals not heights')
         self.isTrain = True

@@ -9,6 +9,9 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 import sys
+from  .heightmap_normals_loss import HeightmapNormalsLoss
+from  .heightmap_rendering_loss import HeightmapRenderingLoss
+import util.kdsutil as kdsutil
 
 class CycleGANModel(BaseModel):
     def name(self):
@@ -70,6 +73,11 @@ class CycleGANModel(BaseModel):
             self.optimizer_D_B = torch.optim.Adam(self.netD_B.parameters(),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
 
+            self.L1_render = self.opt.L1_render
+            print("L1 ON RENDER")
+            if self.L1_render:
+                self.gen_normals = HeightmapNormalsLoss(self.opt.gpu_ids)
+                self.gen_render = HeightmapRenderingLoss(self.opt.gpu_ids)
             print('---------- Networks initialized -------------')
             networks.print_network(self.netG_A)
             networks.print_network(self.netG_B)
@@ -92,6 +100,8 @@ class CycleGANModel(BaseModel):
         if len(self.gpu_ids) > 0:
             self.real_A = self.real_A.cuda(device=self.gpu_ids[0])
             self.real_B = self.real_B.cuda(device=self.gpu_ids[0])
+        if self.L1_render:
+            self.real_B_render = self.gen_render(self.real_B, self.gen_normals(self.real_B))
 
     def test(self):
         self.real_A = Variable(self.input_A, volatile=True)
@@ -121,7 +131,11 @@ class CycleGANModel(BaseModel):
 
     def backward_D_A(self):
         fake_B = self.fake_B_pool.query(self.fake_B)
-        self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_B, fake_B)
+        if self.L1_render:
+            fake_B_render = self.gen_render(fake_B, self.gen_normals(fake_B))
+            self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_B_render, fake_B_render)
+        else:
+            self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_B, fake_B)
 
     def backward_D_B(self):
         fake_A = self.fake_A_pool.query(self.fake_A)
@@ -135,7 +149,10 @@ class CycleGANModel(BaseModel):
         if lambda_idt > 0:
             # G_A should be identity if real_B is fed.
             self.idt_A = self.netG_A.forward(self.real_B)
-            self.loss_idt_A = self.criterionIdt(self.idt_A, self.real_B) * lambda_B * lambda_idt
+            if self.L1_render:
+                self.loss_idt_A = self.criterionIdt(self.idt_A, self.real_B_render) * lambda_B * lambda_idt
+            else:
+                self.loss_idt_A = self.criterionIdt(self.idt_A, self.real_B) * lambda_B * lambda_idt
             # G_B should be identity if real_A is fed.
             self.idt_B = self.netG_B.forward(self.real_A)
             self.loss_idt_B = self.criterionIdt(self.idt_B, self.real_A) * lambda_A * lambda_idt
@@ -146,18 +163,30 @@ class CycleGANModel(BaseModel):
         # GAN loss
         # D_A(G_A(A))
         self.fake_B = self.netG_A.forward(self.real_A)
-        pred_fake = self.netD_A.forward(self.fake_B)
+        if self.L1_render:
+            self.fake_B_render = self.gen_render(self.fake_B, self.gen_normals(self.fake_B))
+            pred_fake = self.netD_A.forward(self.fake_B_render)
+        else:
+            pred_fake = self.netD_A.forward(self.fake_B)
+
         self.loss_G_A = self.criterionGAN(pred_fake, True)
         # D_B(G_B(B))
         self.fake_A = self.netG_B.forward(self.real_B)
         pred_fake = self.netD_B.forward(self.fake_A)
         self.loss_G_B = self.criterionGAN(pred_fake, True)
         # Forward cycle loss
-        self.rec_A = self.netG_B.forward(self.fake_B)
+        if self.L1_render:
+            self.rec_A = self.netG_B.forward(self.fake_B_render)
+        else:
+            self.rec_A = self.netG_B.forward(self.fake_B)
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss
         self.rec_B = self.netG_A.forward(self.fake_A)
-        self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
+        if self.L1_render:
+            self.rec_B_render = self.gen_render(self.rec_B, self.gen_normals(self.rec_B))
+            self.loss_cycle_B = self.criterionCycle(self.rec_B_render, self.real_B_render) * lambda_B
+        else:
+            self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
         # combined loss
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
         self.loss_G.backward()
@@ -202,11 +231,19 @@ class CycleGANModel(BaseModel):
         real_B = util.tensor2im(self.real_B.data)
         fake_A = util.tensor2im(self.fake_A.data)
         rec_B  = util.tensor2im(self.rec_B.data)
+        if self.L1_render:
+            rec_B_render  = util.tensor2im(self.rec_B_render.data)
+            real_B_render  = util.tensor2im(self.real_B_render.data)
+            fake_B_render  = util.tensor2im(self.fake_B_render.data)
         if self.opt.identity > 0.0:
             idt_A = util.tensor2im(self.idt_A.data)
             idt_B = util.tensor2im(self.idt_B.data)
-            return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('rec_A', rec_A), ('idt_B', idt_B),
-                                ('real_B', real_B), ('fake_A', fake_A), ('rec_B', rec_B), ('idt_A', idt_A)])
+            if self.L1_render:
+                return OrderedDict([('real_A', real_A), ('fake_B', fake_B),  ('fake_BR', fake_B_render),('rec_A', rec_A), ('idt_B', idt_B),
+                                    ('real_B', real_B), ('real_BR', real_B_render), ('fake_A', fake_A), ('rec_B', rec_B), ('rec_BR', rec_B_render), ('idt_A', idt_A)])
+            else:
+                return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('rec_A', rec_A), ('idt_B', idt_B),
+                                    ('real_B', real_B), ('fake_A', fake_A), ('rec_B', rec_B), ('idt_A', idt_A)])
         else:
             return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('rec_A', rec_A),
                                 ('real_B', real_B), ('fake_A', fake_A), ('rec_B', rec_B)])
