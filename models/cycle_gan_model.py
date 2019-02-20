@@ -152,6 +152,7 @@ class CycleGANModel(BaseModel):
             # G_A should be identity if real_B is fed.
             self.idt_A = self.netG_A.forward(self.real_B)
             if self.L1_render:
+                self.idt_A = self.netG_A.forward(self.real_B_render)
                 self.loss_idt_A = self.criterionIdt(self.idt_A, self.real_B_render) * lambda_B * lambda_idt
             else:
                 self.loss_idt_A = self.criterionIdt(self.idt_A, self.real_B) * lambda_B * lambda_idt
