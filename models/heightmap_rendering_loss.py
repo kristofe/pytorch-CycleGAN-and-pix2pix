@@ -10,16 +10,20 @@ from PIL import Image
 class HeightmapRenderingLoss(torch.nn.Module):
     # This generates a normal map from a heightmap using convolutions and is fully differentiable
     # TODO: Handle cuda calls
-    def __init__(self, gpu_ids='', use_sobel=True):
+    def __init__(self, gpu_ids='', use_sobel=True, output_1_channel=True):
         super(HeightmapRenderingLoss, self).__init__()
-
+        self.use_cuda = True if len(gpu_ids) > 0 else False
         self.gpu_ids = gpu_ids
         self.Tensor = torch.cuda.FloatTensor if self.gpu_ids else torch.Tensor
+        self.output_1_channel = output_1_channel
         self.last_normals = None
         self.last_generated_pixels = None
         self.last_target_pixels = None
         self.base_wts = self.get_blur_filters()
         self.pad = nn.ReplicationPad2d(1)  # basically forces a single sided finite diff at borders
+        if(self.use_cuda):
+            self.base_wts = self.base_wts.cuda(device=self.gpu_ids[0])
+            self.pad =  self.pad.cuda(device=self.gpu_ids[0])
 
     def get_blur_filters(self):
         c = 1.0/4.0
@@ -77,7 +81,8 @@ class HeightmapRenderingLoss(torch.nn.Module):
     def simplistic_height_to_AO(self, x, wts, scale=4.0):
         assert(x.dim() == 4)  # assume its a batch of 2D images
         channels = x.size(1)
-        assert(channels == 1)  # Assuming a 1 channel grayscale image
+        if(channels > 1):
+            x = x[:,0:1,:,:]
         w = x.size(3)
         h = x.size(2)
         b = x.size(0)
@@ -93,6 +98,9 @@ class HeightmapRenderingLoss(torch.nn.Module):
         output = (rx - x) * scale
         output = 1.0 - torch.clamp(output, min=0, max=1.0)
         #im = output * 255
+        if(self.output_1_channel == False):
+            output = output.expand(b,3, h, w)
+
         #im = im.squeeze().expand(3, h, w)
         #im = im.permute(1,2,0)
         #img = Image.fromarray(im.numpy().astype(np.uint8))
@@ -128,7 +136,7 @@ class HeightmapRenderingLoss(torch.nn.Module):
         self.last_normals = normals
         b = x.size(0)
 
-        if x.size(1) != 1:
+        if self.output_1_channel and x.size(1) != 1:
            x = x[:,0:1,:,:]
 
         wts = HeightmapRenderingLoss.adjust_filters_to_batchsize(b, self.base_wts)

@@ -77,7 +77,7 @@ class CycleGANModel(BaseModel):
             print("L1 ON RENDER")
             if self.L1_render:
                 self.gen_normals = HeightmapNormalsLoss(self.opt.gpu_ids)
-                self.gen_render = HeightmapRenderingLoss(self.opt.gpu_ids)
+                self.gen_render = HeightmapRenderingLoss(self.opt.gpu_ids, output_1_channel=True)
             print('---------- Networks initialized -------------')
             networks.print_network(self.netG_A)
             networks.print_network(self.netG_B)
@@ -89,6 +89,8 @@ class CycleGANModel(BaseModel):
         AtoB = self.opt.which_direction == 'AtoB'
         input_A = input['A' if AtoB else 'B']
         input_B = input['B' if AtoB else 'A']
+        input_A = input_A[:,0:self.opt.input_nc,:,:]
+        input_B = input_B[:,0:self.opt.input_nc,:,:]
 
         self.input_A.resize_(input_A.size()).copy_(input_A)
         self.input_B.resize_(input_B.size()).copy_(input_B)
@@ -171,7 +173,10 @@ class CycleGANModel(BaseModel):
 
         self.loss_G_A = self.criterionGAN(pred_fake, True)
         # D_B(G_B(B))
-        self.fake_A = self.netG_B.forward(self.real_B)
+        if self.L1_render:
+            self.fake_A = self.netG_B.forward(self.real_B_render)
+        else:
+            self.fake_A = self.netG_B.forward(self.real_B)
         pred_fake = self.netD_B.forward(self.fake_A)
         self.loss_G_B = self.criterionGAN(pred_fake, True)
         # Forward cycle loss
@@ -238,15 +243,15 @@ class CycleGANModel(BaseModel):
         if self.opt.identity > 0.0:
             idt_A = util.tensor2im(self.idt_A.data)
             idt_B = util.tensor2im(self.idt_B.data)
-            if self.L1_render:
-                return OrderedDict([('real_A', real_A), ('fake_B', fake_B),  ('fake_BR', fake_B_render),('rec_A', rec_A), ('idt_B', idt_B),
-                                    ('real_B', real_B), ('real_BR', real_B_render), ('fake_A', fake_A), ('rec_B', rec_B), ('rec_BR', rec_B_render), ('idt_A', idt_A)])
-            else:
-                return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('rec_A', rec_A), ('idt_B', idt_B),
-                                    ('real_B', real_B), ('fake_A', fake_A), ('rec_B', rec_B), ('idt_A', idt_A)])
+            return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('rec_A', rec_A), ('idt_B', idt_B),
+                                ('real_B', real_B), ('fake_A', fake_A), ('rec_B', rec_B), ('idt_A', idt_A)])
         else:
-            return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('rec_A', rec_A),
-                                ('real_B', real_B), ('fake_A', fake_A), ('rec_B', rec_B)])
+            if self.L1_render:
+                return OrderedDict([('real_A', real_A), ('fake_B', fake_B),  ('fake_BR', fake_B_render),('rec_A', rec_A),
+                                    ('real_B', real_B), ('real_BR', real_B_render), ('fake_A', fake_A), ('rec_B', rec_B), ('rec_BR', rec_B_render)])
+            else:
+                return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('rec_A', rec_A),
+                                    ('real_B', real_B), ('fake_A', fake_A), ('rec_B', rec_B)])
 
     def save(self, label):
         self.save_network(self.netG_A, 'G_A', label, self.gpu_ids)

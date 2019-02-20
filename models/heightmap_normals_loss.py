@@ -12,7 +12,7 @@ class HeightmapNormalsLoss(torch.nn.Module):
     # TODO: Handle cuda calls
     def __init__(self, gpu_ids='', use_sobel=True):
         super(HeightmapNormalsLoss, self).__init__()
-
+        self.use_cuda = True if len(gpu_ids) > 0 else False
         self.gpu_ids = gpu_ids
         self.Tensor = torch.cuda.FloatTensor if self.gpu_ids else torch.Tensor
         self.use_sobel = use_sobel
@@ -25,6 +25,9 @@ class HeightmapNormalsLoss(torch.nn.Module):
             self.base_x_wts, self.base_y_wts = self.get_simple_filters()
         self.pad = nn.ReplicationPad2d(1)  # basically forces a single sided finite diff at borders
         #self.loss = torch.nn.L1Loss()
+        if(self.use_cuda):
+            self.base_x_wts = self.base_x_wts.cuda(device=self.gpu_ids[0])
+            self.pad =  self.pad.cuda(device=self.gpu_ids[0])
 
     def get_sobel_filters(self):
         x_wts = self.Tensor([
