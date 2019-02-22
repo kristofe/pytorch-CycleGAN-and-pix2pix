@@ -13,6 +13,11 @@ from util.visualizer import Visualizer
 
 from options.train_options import TrainOptions
 
+'''
+python export_onnx.py --GA_model_to_load checkpoints/terrain_cyclegan_rend_relief/200_net_G_A.pth --GB_model_to_load checkpoints/terrain_cyclegan_rend_relief/200_net_G_B.pth --dataroot datasets_demo/256/clean_relief_3k/ --model cycle_gan --which_model_netG unet_256
+python export_onnx.py --GA_model_to_load checkpoints/terrain_cyclegan_resnet1chan/200_net_G_A.pth --GB_model_to_load checkpoints/terrain_cyclegan_resnet1chan/200_net_G_B.pth --dataroot datasets_demo/256/clean_relief_3k/ --model cycle_gan --which_model_netG resnet_9blocks
+'''
+
 class ExportOptions(TrainOptions):
     def initialize(self):
         TrainOptions.initialize(self)
