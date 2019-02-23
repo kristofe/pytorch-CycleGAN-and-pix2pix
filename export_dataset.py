@@ -45,8 +45,8 @@ if not os.path.exists(opt.output_dir):
 def set_input(input, opt):
     input_A = input['A']
     input_B = input['B']
-    input_A[:,0:opt.input_nc,:,:]
-    input_B[:,0:opt.input_nc,:,:]
+    input_A=input_A[:,0:opt.input_nc,:,:]
+    input_B=input_B[:,0:opt.input_nc,:,:]
     image_paths = input['A_paths']
     real_A = Variable(input_A)
     real_B = Variable(input_B)
