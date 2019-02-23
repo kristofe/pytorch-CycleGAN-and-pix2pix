@@ -81,5 +81,5 @@ for i, data in enumerate(dataset):
     fake_A = model.netG_B.forward(real_B)
     real_B_img = util.tensor2im(real_B.data)
     fake_A_img = util.tensor2im(fake_A.data)
-    util.save_image(real_B_img, opt.output_dir + "input_{:4d}_heightmap_8bit_normalized.png".format(i))
-    util.save_image(fake_A_img, opt.output_dir + "target_{:4d}_reliefmap_8bit.png".format(i))
+    util.save_image(real_B_img, opt.output_dir + "input_{:04d}_heightmap_8bit_normalized.png".format(i))
+    util.save_image(fake_A_img, opt.output_dir + "target_{:04d}_reliefmap_8bit.png".format(i))
