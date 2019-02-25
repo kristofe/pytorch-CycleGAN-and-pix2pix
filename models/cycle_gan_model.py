@@ -63,8 +63,12 @@ class CycleGANModel(BaseModel):
             self.fake_B_pool = ImagePool(opt.pool_size)
             # define loss functions
             self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan, tensor=self.Tensor, gpu_ids=self.gpu_ids)
-            self.criterionCycle = torch.nn.L1Loss()
-            self.criterionIdt = torch.nn.L1Loss()
+            if(opt.use_mse):
+                self.criterionCycle = torch.nn.MSELoss()
+                self.criterionIdt = torch.nn.MSELoss()
+            else:
+                self.criterionCycle = torch.nn.L1Loss()
+                self.criterionIdt = torch.nn.L1Loss()
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
